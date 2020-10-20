@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+<!-- jQuery library -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<!-- Latest compiled JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <title>capture image using web-cam js</title>
+</head>
+
+<body>
+    <div id="my_camera" style="float: left;"></div>
+    
+</body>
+
+<script type="text/javascript" src="./webcam.min.js"></script>
+<script type="text/javascript" src="./face-api.min.js"></script>
+<!-- <script src="script.js"></script> -->
+<script type="text/javascript">
+	
+Promise.all([
+  faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+  faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+  faceapi.nets.ssdMobilenetv1.loadFromUri('/models')
+]).then(start)
+async function start() {
+Webcam.set({
+    width:320,
+    height:240,
+    image_format: 'png',
+    jpeg_quality: 100
+ });
+
+ Webcam.attach( '#my_camera' );
+  const labeledFaceDescriptors = await loadLabeledImages()
+  const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6)
+  document.body.append('Loaded')
+ setInterval(() =>  {
+        Webcam.snap((data_uri)=> {
+            fetch(data_uri)
+            .then(res => res.blob())
+            .then(async (blob) => {
+              const file = new File([blob], 'snap.png', blob)
+              image = await faceapi.bufferToImage(file)
+              const detections = await faceapi.detectAllFaces(image).withFaceLandmarks().withFaceDescriptors()
+              const results = detections.map(d => faceMatcher.findBestMatch(d.descriptor))
+              results.forEach((result, i) => {
+                console.log(result.toString());
+                var my = result.toString()
+                $.post('/insert', {"dat": my}, function(data){
+
+                })
+              })
+            })
+         });
+ }, 1000);
+}
+
+
+function loadLabeledImages() {
+    const labels = ['18MH1A0511','18A91A1252','18MH1A0518','18A91A1230']
+    return Promise.all(
+      labels.map(async label => {
+        const descriptions = []
+        for (let i = 1; i <= 2; i++) {
+            let img = await faceapi.fetchImage(`./labeled_images/${label}/${i}.jpg`)
+          const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor()
+          descriptions.push(detections.descriptor)
+        }
+  
+        return new faceapi.LabeledFaceDescriptors(label, descriptions)
+      })
+    )}
+</script>
+</html>
